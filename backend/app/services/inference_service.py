@@ -38,7 +38,7 @@ async def run_inference_for_study(db, study_id):
                 blockage_pct=blockage_pct,
                 confidence=result["confidence"],
                 explanation="YOLO + segmentation pipeline",
-                heatmap_path=result["visual_path"],
+                heatmap_path=result["yolo_visual_path"],
             )
             .on_conflict_do_update(
                 index_elements=[Finding.image_id],
@@ -46,7 +46,7 @@ async def run_inference_for_study(db, study_id):
                     "artery": result["artery"] or "Unknown",
                     "blockage_pct": blockage_pct,
                     "confidence": result["confidence"],
-                    "heatmap_path": result["visual_path"],
+                    "heatmap_path": result["yolo_visual_path"],
                 },
             )
         )
