@@ -1,6 +1,7 @@
 # app/api/router.py
 from fastapi import APIRouter
+from app.api import dashboard, upload
 
 router = APIRouter()
-
-# routers will be added incrementally
+router.include_router(dashboard.router)
+router.include_router(upload.router)
