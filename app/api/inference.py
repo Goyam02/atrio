@@ -1,22 +1,25 @@
-# app/api/inference.py
-from fastapi import APIRouter, HTTPException
-from app.db.memory import patients
-from app.services.inference_service import run_inference_for_patient
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
+
+from app.db.session import get_db
+from app.models.study import Study
+from app.services.inference_service import run_inference_for_study
 
 router = APIRouter(tags=["Inference"])
 
-@router.post("/{patient_id}/run-inference")
-def run_inference(patient_id: str):
-    if patient_id not in patients:
-        raise HTTPException(status_code=404, detail="Patient not found")
+@router.post("/studies/{study_id}/run-inference")
+async def run_inference(
+    study_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    study = await db.get(Study, study_id)
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
 
-    if not patients[patient_id]["scans"]:
-        raise HTTPException(status_code=400, detail="No scans uploaded")
-
-    run_inference_for_patient(patient_id)
+    await run_inference_for_study(db, study_id)
 
     return {
-        "patient_id": patient_id,
+        "study_id": str(study_id),
         "status": "inference completed",
-        "images_processed": len(patients[patient_id]["scans"])
     }

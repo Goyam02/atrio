@@ -1,12 +1,44 @@
-from app.db.memory import patients
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from app.models.decision import Decision
 
-def accept_findings(patient_id: str):
-    patients[patient_id]["decision_status"] = "accepted"
-    patients[patient_id]["decision_feedback"] = None
-    patients[patient_id]["report_generated"] = False
+async def accept_study(db: AsyncSession, study_id):
+    result = await db.execute(
+        select(Decision).where(Decision.study_id == study_id)
+    )
+    decision = result.scalar_one_or_none()
+
+    if decision:
+        # UPDATE
+        decision.status = "accepted"
+        decision.feedback = None
+    else:
+        # INSERT
+        decision = Decision(
+            study_id=study_id,
+            status="accepted",
+            feedback=None,
+        )
+        db.add(decision)
+
+    await db.commit()
 
 
-def reject_findings(patient_id: str, reason: str):
-    patients[patient_id]["decision_status"] = "rejected"
-    patients[patient_id]["decision_feedback"] = reason
-    patients[patient_id]["inference_status"] = "needs_review"
+async def reject_study(db: AsyncSession, study_id, reason: str):
+    result = await db.execute(
+        select(Decision).where(Decision.study_id == study_id)
+    )
+    decision = result.scalar_one_or_none()
+
+    if decision:
+        decision.status = "rejected"
+        decision.feedback = reason
+    else:
+        decision = Decision(
+            study_id=study_id,
+            status="rejected",
+            feedback=reason,
+        )
+        db.add(decision)
+
+    await db.commit()

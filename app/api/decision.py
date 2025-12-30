@@ -1,33 +1,35 @@
-# app/api/decision.py
-from fastapi import APIRouter, HTTPException
-from app.db.memory import patients
-from app.schemas.decision import AcceptRequest, RejectRequest
-from app.services.decision_service import accept_findings, reject_findings
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
+
+from app.db.session import get_db
+from app.models.study import Study
+from app.services.decision_service import accept_study, reject_study
 
 router = APIRouter(tags=["Decision"])
 
-@router.post("/accept")
-def accept(payload: AcceptRequest):
-    if payload.patient_id not in patients:
-        raise HTTPException(status_code=404, detail="Patient not found")
+@router.post("/studies/{study_id}/accept")
+async def accept(
+    study_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    study = await db.get(Study, study_id)
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
 
-    accept_findings(payload.patient_id)
-
-    return {
-        "patient_id": payload.patient_id,
-        "status": "accepted"
-    }
+    await accept_study(db, study_id)
+    return {"study_id": str(study_id), "status": "accepted"}
 
 
-@router.post("/reject")
-def reject(payload: RejectRequest):
-    if payload.patient_id not in patients:
-        raise HTTPException(status_code=404, detail="Patient not found")
+@router.post("/studies/{study_id}/reject")
+async def reject(
+    study_id: UUID,
+    reason: str,
+    db: AsyncSession = Depends(get_db),
+):
+    study = await db.get(Study, study_id)
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
 
-    reject_findings(payload.patient_id, payload.reason)
-
-    return {
-        "patient_id": payload.patient_id,
-        "status": "rejected",
-        "reason": payload.reason
-    }
+    await reject_study(db, study_id, reason)
+    return {"study_id": str(study_id), "status": "rejected", "reason": reason}

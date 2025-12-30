@@ -1,23 +1,23 @@
-# app/api/report.py
-from fastapi import APIRouter, HTTPException
-from app.db.memory import patients
-from app.schemas.report import ReportResponse
-from app.services.report_service import generate_report_for_patient
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
+
+from app.db.session import get_db
+from app.services.report_service import generate_report_for_study
 
 router = APIRouter(tags=["Report"])
 
-@router.get("/report", response_model=ReportResponse)
-def generate_report(patient_id: str):
-    if patient_id not in patients:
-        raise HTTPException(status_code=404, detail="Patient not found")
-
-    patient = patients[patient_id]
-
-    if patient["decision_status"] != "accepted":
-        raise HTTPException(
-            status_code=400,
-            detail="Report can only be generated after acceptance"
-        )
-
-    report = generate_report_for_patient(patient_id)
-    return report
+@router.post("/studies/{study_id}/report")
+async def generate_report(
+    study_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        result = await generate_report_for_study(db, study_id)
+        return {
+            "study_id": result["study_id"],
+            "status": "report generated",
+            "summary": result["summary"],
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
