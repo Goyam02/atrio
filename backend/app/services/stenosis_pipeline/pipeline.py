@@ -49,4 +49,5 @@ def run_stenosis_pipeline(image_bytes: bytes, image_name: str):
         "severity": result["severity"],
         "confidence": yolo_out["confidence"],
         "visual_path": visual_path,
+        "yolo_visual_path": yolo_vis_path
     }
