@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
-from app.db.session import get_db
-from app.schemas.patient import CreatePatientRequest, PatientResponse
-from app.services.patient_service import create_patient, get_patient
+from db.session import get_db
+from schemas.patient import CreatePatientRequest, PatientResponse
+from services.patient_service import create_patient, get_patient
 
 router = APIRouter(tags=["Patients"])
 

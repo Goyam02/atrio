@@ -1,7 +1,7 @@
 # app/db/session.py
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from app.core.config import settings
+from core.config import settings
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 raw_url = settings.DATABASE_URL

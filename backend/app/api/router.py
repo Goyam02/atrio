@@ -1,6 +1,6 @@
 # app/api/router.py
 from fastapi import APIRouter
-from app.api import dashboard, upload, inference, findings, decision, report, patient
+from api import dashboard, upload, inference, findings, decision, report, patient
 
 router = APIRouter()
 router.include_router(patient.router)

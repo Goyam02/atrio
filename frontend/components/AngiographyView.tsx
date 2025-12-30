@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   ArrowLeft, Download, CheckCircle, XCircle, 
   Mic, ChevronLeft, ChevronRight, Box,
@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Patient, Finding } from '../types';
 import { analyzeMedicalCorrection, refineMedicalTranscript } from '../services/geminiService';
+import { getFindingsView } from '../services/findingsService';
 import { jsPDF } from "jspdf";
 
 interface AngiographyViewProps {
@@ -20,6 +21,7 @@ const AngiographyView: React.FC<AngiographyViewProps> = ({ patient, onBack, onUp
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectionNote, setRejectionNote] = useState('');
   const [isProcessingAI, setIsProcessingAI] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(false);
   
   // Edit Mode State
   const [editMode, setEditMode] = useState(false);
@@ -35,6 +37,53 @@ const AngiographyView: React.FC<AngiographyViewProps> = ({ patient, onBack, onUp
   const correctionRef = useRef<HTMLTextAreaElement>(null);
   
   const selectedFinding = patient.findings[selectedFindingIndex];
+
+useEffect(() => {
+  const loadFindings = async () => {
+    if (!patient.studyId) return;
+
+    try {
+      const base =
+        (import.meta.env && (import.meta.env.VITE_API_BASE as string)) ||
+        'http://localhost:8000';
+
+      const normalize = (p: string) => p.replace(/\\/g, '/');
+
+      const findingsView = await getFindingsView(patient.studyId);
+
+      const mapped: Finding[] = findingsView.images.map((img) => {
+        const heatmapUrl = img.heatmap_path
+          ? `${base}${normalize(img.heatmap_path)}`
+          : null;
+
+        const originalUrl = img.image_path
+          ? `${base}${normalize(img.image_path)}`
+          : null;
+
+        return {
+          id: img.image_id,
+          arteryName: img.artery || 'Unknown',
+          confidence: Math.round(img.confidence * 100),
+          blockagePercentage: img.blockage_pct,
+
+          // ✅ FORCE HEATMAP
+          imageUrl: heatmapUrl ?? originalUrl ?? '',
+
+          heatmapUrl,
+          originalImageUrl: originalUrl,
+          isFlagged: img.blockage_pct > 50,
+        };
+      });
+
+      onUpdatePatient({ ...patient, findings: mapped });
+    } catch (err) {
+      console.error('Failed to fetch findings view:', err);
+    }
+  };
+
+  loadFindings();
+}, [patient.studyId]);
+
 
   // Helper to update current finding
   const updateCurrentFinding = (updates: Partial<Finding>) => {
@@ -388,48 +437,20 @@ const AngiographyView: React.FC<AngiographyViewProps> = ({ patient, onBack, onUp
                 <span className="text-slate-400 text-sm font-normal">ID: {patient.id}</span>
             </div>
             </div>
-            {/* View Mode Toggle */}
-            <div className="flex bg-slate-100 p-1 rounded-lg">
-                <button 
-                   onClick={() => setIs3DMode(false)}
-                   className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${!is3DMode ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                    2D Angio
-                </button>
-                <button 
-                   onClick={() => setIs3DMode(true)}
-                   className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${is3DMode ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                    3D Model
-                </button>
-            </div>
+
         </div>
 
-        {/* Main Viewer */}
+{/* Main Viewer - Heatmap Images Only */}
         <div className="flex-1 relative flex items-center justify-center bg-slate-50 overflow-hidden">
-             {/* 3D Overlay or Main Image */}
-             {is3DMode ? (
-                <div className="flex flex-col items-center justify-center">
-                    <Box className="w-24 h-24 text-blue-300 animate-pulse mb-4" />
-                    <p className="text-slate-500 font-mono text-sm">INTERACTIVE 3D MODEL</p>
+            <div className="relative w-full h-full flex items-center justify-center p-8">
+                <div className="relative max-w-3xl max-h-[70vh] flex items-center justify-center">
+                    <img 
+                        src={selectedFinding.imageUrl} 
+                        alt="Heatmap" 
+                        className="max-h-full max-w-full object-contain"
+                    />
                 </div>
-            ) : (
-                <div className="relative w-full h-full flex items-center justify-center p-8">
-                    <div className="relative max-w-2xl max-h-[60vh] flex items-center justify-center">
-                        <img 
-                            src={selectedFinding.imageUrl} 
-                            alt="Angiography" 
-                            className="max-h-full max-w-full object-contain mix-blend-multiply"
-                        />
-                        {/* Bounding Box */}
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 border-2 border-red-500/60 shadow-[0_0_15px_rgba(239,68,68,0.2)] rounded-lg pointer-events-none">
-                             <div className="absolute -top-3 left-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
-                                 {selectedFinding.blockagePercentage}% Stenosis
-                             </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            </div>
         </div>
 
         {/* Film Strip */}
@@ -564,97 +585,12 @@ const AngiographyView: React.FC<AngiographyViewProps> = ({ patient, onBack, onUp
                 </div>
             </div>
 
-            {/* AI Notes */}
-            <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
-                <p className="text-slate-500 text-sm italic leading-relaxed">
-                   "{selectedFinding.notes || "AI detection consistent with historical data. No anomalies in vessel structure detected."}"
-                </p>
-            </div>
 
-            {/* Correction UI */}
-            {isRejecting && !editMode && (
-               <div className="space-y-3">
-                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 animate-in fade-in slide-in-from-bottom-2">
-                   <div className="flex justify-between items-center mb-2">
-                       <p className="text-blue-800 text-sm font-medium">Physician Correction</p>
-                       <button 
-                          onClick={handleVoiceInput}
-                          disabled={isCleaningVoice}
-                          className={`p-1.5 rounded-full transition-colors ${isRecording ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-white text-slate-400 hover:text-blue-600'}`}
-                       >
-                          {isCleaningVoice ? <Loader2 className="w-4 h-4 animate-spin"/> : (isRecording ? <MicOff className="w-4 h-4"/> : <Mic className="w-4 h-4"/>)}
-                       </button>
-                   </div>
-                   <textarea 
-                      ref={correctionRef}
-                      value={rejectionNote}
-                      onChange={(e) => setRejectionNote(e.target.value)}
-                      placeholder="Enter findings..."
-                      className="w-full bg-white border border-blue-200 rounded-lg p-2 text-sm text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none mb-2"
-                      rows={3}
-                   />
-                   <div className="flex gap-2 justify-end">
-                      <button 
-                        onClick={() => setIsRejecting(false)}
-                        className="text-xs text-slate-500 hover:text-slate-700 px-3 py-1.5"
-                      >
-                        Cancel
-                      </button>
-                      <button 
-                        onClick={handleRejectSubmit}
-                        disabled={isProcessingAI}
-                        className="bg-blue-600 hover:bg-blue-700 text-white rounded text-xs px-3 py-1.5 font-medium flex items-center gap-1"
-                      >
-                        {isProcessingAI && <Loader2 className="w-3 h-3 animate-spin"/>}
-                        {isProcessingAI ? 'AI...' : 'Update'}
-                      </button>
-                   </div>
-                 </div>
 
-                 {/* Documentation Box - Shows spoken and AI-fixed text */}
-                 {(rawSpokenText || aiFixedText) && (
-                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 shadow-sm">
-                         <h4 className="font-semibold text-slate-800 mb-3 flex items-center gap-2 text-sm">
-                             <CheckCircle className="w-4 h-4 text-blue-500" />
-                             Voice Documentation
-                         </h4>
-                         <div className="space-y-3">
-                             {rawSpokenText && (
-                                 <div>
-                                     <p className="text-xs font-medium text-slate-500 mb-1">Raw Spoken Text:</p>
-                                     <p className="text-sm text-slate-700 bg-white/80 p-2 rounded border border-slate-200 italic">
-                                         "{rawSpokenText}"
-                                     </p>
-                                 </div>
-                             )}
-                             {aiFixedText && (
-                                 <div>
-                                     <p className="text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
-                                         <Wand2 className="w-3 h-3" />
-                                         AI Refined Text:
-                                     </p>
-                                     <p className="text-sm text-slate-800 bg-white p-2 rounded border border-blue-200 font-medium">
-                                         "{aiFixedText}"
-                                     </p>
-                                 </div>
-                             )}
-                         </div>
-                     </div>
-                 )}
-               </div>
-            )}
          </div>
 
          {/* Bottom Actions */}
          <div className="p-6 border-t border-slate-100 bg-slate-50/50 space-y-3">
-             {!editMode && (
-                 <button 
-                     onClick={handleCorrectionClick}
-                     className="w-full text-red-500 text-sm hover:text-red-700 font-medium flex items-center justify-center gap-2 hover:bg-red-50 py-2 rounded-lg transition-colors border-2 border-red-500 bg-white"
-                 >
-                     <XCircle className="w-4 h-4" /> Correction / Reject Finding
-                 </button>
-             )}
 
              {patient.reportGenerated && !editMode ? (
                 <div className="flex gap-2">

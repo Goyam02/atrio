@@ -1,8 +1,8 @@
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
-from app.models.image import Image
-from app.models.finding import Finding
-from app.services.stenosis_pipeline.pipeline import run_stenosis_pipeline
+from models.image import Image
+from models.finding import Finding
+from services.stenosis_pipeline.pipeline import run_stenosis_pipeline
 import os
 
 

@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
-from app.db.session import get_db
-from app.services.report_service import generate_report_for_study
+from db.session import get_db
+from services.report_service import generate_report_for_study
 
 router = APIRouter(tags=["Report"])
 

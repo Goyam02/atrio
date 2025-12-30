@@ -1,7 +1,7 @@
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.study import Study
-from app.models.image import Image
+from models.study import Study
+from models.image import Image
 
 
 async def create_study_and_images(

@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
-from app.schemas.dashboard import DashboardResponse, DashboardPatient
-from app.services.dashboard_service import fetch_dashboard
+from db.session import get_db
+from schemas.dashboard import DashboardResponse, DashboardPatient
+from services.dashboard_service import fetch_dashboard
 
 router = APIRouter(tags=["Dashboard"])
 

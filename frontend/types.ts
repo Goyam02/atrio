@@ -23,6 +23,7 @@ export interface Finding {
   confidence: number;
   blockagePercentage: number;
   imageUrl: string;
+  heatmapUrl?: string;
   isFlagged: boolean;
   notes?: string;
   excludedFromReport?: boolean; // If true, this finding won't appear in the PDF report
@@ -47,6 +48,7 @@ export interface Patient {
   operator?: string;
   impression?: string;
   advice?: string;
+  studyId?: string; // backend study id produced when uploading images
 }
 
 // Mock Data Generators

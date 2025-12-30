@@ -3,9 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
 
-from app.db.session import get_db
-from app.models.image import Image
-from app.models.finding import Finding
+from db.session import get_db
+from models.image import Image
+from models.finding import Finding
 
 router = APIRouter(tags=["Findings"])
 

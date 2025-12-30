@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, Float, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
-from app.db.base import Base
+from db.base import Base
 
 class Finding(Base):
     __tablename__ = "findings"

@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.models.decision import Decision
+from models.decision import Decision
 
 async def accept_study(db: AsyncSession, study_id):
     result = await db.execute(

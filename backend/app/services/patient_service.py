@@ -1,6 +1,6 @@
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.patient import Patient
+from models.patient import Patient
 
 async def create_patient(db: AsyncSession, name: str) -> Patient:
     patient = Patient(

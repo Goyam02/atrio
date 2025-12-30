@@ -2,10 +2,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
-from app.models.decision import Decision
-from app.models.finding import Finding
-from app.models.image import Image
-from app.models.report import Report
+from models.decision import Decision
+from models.finding import Finding
+from models.image import Image
+from models.report import Report
 
 
 async def generate_report_for_study(db: AsyncSession, study_id):

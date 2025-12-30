@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
-from app.db.session import get_db
-from app.models.study import Study
-from app.services.inference_service import run_inference_for_study
+from db.session import get_db
+from models.study import Study
+from services.inference_service import run_inference_for_study
 
 router = APIRouter(tags=["Inference"])
 

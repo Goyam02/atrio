@@ -5,6 +5,10 @@ import {
 } from 'lucide-react';
 import { Patient, RiskLevel, StudyStatus, Finding } from '../types';
 import { refineMedicalTranscript } from '../services/geminiService';
+import { createPatient } from '../services/patientService';
+import { uploadBatch } from '../services/uploadService';
+import { runInference } from '../services/inferenceService';
+import { getFindingsView } from '../services/findingsService';
 
 interface NewPatientPageProps {
   onBack: () => void;
@@ -19,6 +23,8 @@ const NewPatientPage: React.FC<NewPatientPageProps> = ({ onBack, onSave }) => {
   const [aiFixedText, setAiFixedText] = useState('');
   const [isProcessingVoice, setIsProcessingVoice] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+    const [creatingPatient, setCreatingPatient] = useState(false);
+    const [backendFindings, setBackendFindings] = useState<any[] | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   
   const [formData, setFormData] = useState({
@@ -110,8 +116,54 @@ const NewPatientPage: React.FC<NewPatientPageProps> = ({ onBack, onSave }) => {
   };
 
   const handleAnalyze = async () => {
-    setLoading(true);
-    setTimeout(() => {
+        setLoading(true);
+        let backendId = formData.id;
+        let backendStudyId: string | undefined = undefined;
+        try {
+            const resp = await createPatient(formData.name || 'Unknown Patient');
+            backendId = resp.id;
+            setFormData(prev => ({ ...prev, id: backendId }));
+        } catch (err) {
+            console.error('Failed to create patient on backend:', err);
+        }
+
+        // If we have files and a backend patient id, upload them and capture study id
+        let mappedFindingsLocal: any[] | undefined = undefined;
+        if (uploadedFiles.length > 0 && backendId) {
+            try {
+                const up = await uploadBatch(backendId, uploadedFiles);
+                backendStudyId = up.study_id;
+                console.log('Uploaded images, study id:', backendStudyId);
+
+                // Run inference for this study
+                try {
+                    await runInference(backendStudyId);
+                    // Fetch findings view
+                    const findingsView = await getFindingsView(backendStudyId);
+                    // Map backend findings to frontend Finding[]
+                    const base = (import.meta.env && (import.meta.env.VITE_API_BASE as string)) || 'http://localhost:8000';
+                    const normalize = (p: string) => p.replace(/\\/g, '/');
+                    const mappedFindings: any[] = findingsView.images.map((img) => ({
+                        id: img.image_id,
+                        arteryName: img.artery,
+                        confidence: img.confidence,
+                        blockagePercentage: img.blockage_pct,
+                        imageUrl: img.image_path ? `${base}${normalize(img.image_path)}` : '',
+                        heatmapUrl: img.heatmap_path ? `${base}${normalize(img.heatmap_path)}` : null,
+                        isFlagged: img.blockage_pct > 50,
+                    }));
+
+                    mappedFindingsLocal = mappedFindings;
+                    setBackendFindings(mappedFindings);
+                } catch (err) {
+                    console.error('Inference or findings fetch failed:', err);
+                }
+            } catch (err) {
+                console.error('Upload batch failed:', err);
+            }
+        }
+
+        setTimeout(() => {
         let findings: Finding[] = [];
         if (uploadedFiles.length > 0) {
             findings = uploadedFiles.map((file, idx) => ({
@@ -122,6 +174,10 @@ const NewPatientPage: React.FC<NewPatientPageProps> = ({ onBack, onSave }) => {
                 imageUrl: URL.createObjectURL(file), 
                 isFlagged: Math.random() > 0.5
             }));
+            // If backend returned mapped findings in this run, prefer those
+            if (mappedFindingsLocal && Array.isArray(mappedFindingsLocal) && mappedFindingsLocal.length > 0) {
+                findings = mappedFindingsLocal as Finding[];
+            }
         } else {
              findings = [
                 {
@@ -140,8 +196,8 @@ const NewPatientPage: React.FC<NewPatientPageProps> = ({ onBack, onSave }) => {
         if (maxBlockage > 70) risk = RiskLevel.HIGH;
         else if (maxBlockage > 50) risk = RiskLevel.MEDIUM;
 
-        const newPatient: Patient = {
-          id: formData.id || `P-${Math.floor(Math.random() * 10000)}`,
+                const newPatient: Patient = {
+                    id: backendId || formData.id || `P-${Math.floor(Math.random() * 10000)}`,
           name: formData.name || 'Unknown Patient',
           age: parseInt(formData.age) || 50,
           sex: formData.sex as 'M'|'F'|'O',
@@ -155,13 +211,31 @@ const NewPatientPage: React.FC<NewPatientPageProps> = ({ onBack, onSave }) => {
           operator: 'Dr. Current User',
           impression: `Angiography reveals ${risk.toLowerCase()} risk findings.`,
           advice: 'Medical Management',
-          findings: findings
+                    findings: findings,
+                    studyId: backendStudyId
         };
         
         onSave(newPatient);
         setLoading(false);
     }, 2500);
   };
+
+    const handleCreatePatient = async () => {
+        if (!formData.name || formData.name.trim() === '') {
+            alert('Please enter a patient name before creating.');
+            return;
+        }
+        setCreatingPatient(true);
+        try {
+            const resp = await createPatient(formData.name.trim());
+            setFormData(prev => ({ ...prev, id: resp.id }));
+        } catch (err) {
+            console.error('Failed to create patient on backend:', err);
+            alert('Failed to create patient on backend. See console for details.');
+        } finally {
+            setCreatingPatient(false);
+        }
+    };
 
   if (loading) {
       return (
@@ -241,6 +315,20 @@ const NewPatientPage: React.FC<NewPatientPageProps> = ({ onBack, onSave }) => {
                                     />
                                 </div>
                             </div>
+                        </div>
+
+                        <div className="mt-4">
+                            <button
+                                onClick={handleCreatePatient}
+                                disabled={creatingPatient}
+                                className="py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium disabled:opacity-50"
+                            >
+                                {creatingPatient ? (
+                                    <><Loader2 className="w-4 h-4 inline-block mr-2 animate-spin"/> Creating...</>
+                                ) : (
+                                    'Create Patient'
+                                )}
+                            </button>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
@@ -404,6 +492,29 @@ const NewPatientPage: React.FC<NewPatientPageProps> = ({ onBack, onSave }) => {
                             ))
                         )}
                     </div>
+
+                    {backendFindings && backendFindings.length > 0 && (
+                        <div className="mt-4 bg-white p-4 rounded-lg border border-slate-100 shadow-sm">
+                            <h4 className="font-semibold text-slate-800 mb-3">AI Findings & Heatmaps</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {backendFindings.map((f, i) => (
+                                    <div key={f.id || i} className="border rounded-lg p-2 bg-slate-50">
+                                        <div className="text-xs text-slate-600 font-medium mb-1">{f.arteryName || 'Artery'}</div>
+                                        <div className="w-full h-36 bg-black/5 rounded overflow-hidden mb-2 grid grid-cols-2 gap-1">
+                                            <img src={f.imageUrl} alt="orig" className="w-full h-full object-cover" />
+                                            {f.heatmapUrl ? (
+                                                <img src={f.heatmapUrl} alt="heatmap" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="flex items-center justify-center text-xs text-slate-400">No heatmap</div>
+                                            )}
+                                        </div>
+                                        <div className="text-xs text-slate-500">Blockage: {f.blockagePercentage}%</div>
+                                        <div className="text-xs text-slate-500">Confidence: {(f.confidence || 0).toFixed(2)}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="pt-4 border-t border-slate-100 mt-auto">
                         <div className="flex justify-between items-center mb-4 text-sm text-slate-500">

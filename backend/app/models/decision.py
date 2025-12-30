@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Text, DateTime, ForeignKey, CheckConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-from app.db.base import Base
+from db.base import Base
 
 class Decision(Base):
     __tablename__ = "decisions"

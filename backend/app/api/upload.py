@@ -4,10 +4,10 @@ from pathlib import Path
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.session import get_db
-from app.models.patient import Patient
-from app.services.upload_service import create_study_and_images
-from app.core.config import settings
+from db.session import get_db
+from models.patient import Patient
+from services.upload_service import create_study_and_images
+from core.config import settings
 
 router = APIRouter(tags=["Upload"])
 
@@ -29,6 +29,7 @@ async def upload_dicom_batch(
     file_paths = []
     for file in files:
         file_path = patient_dir / f"{uuid.uuid4()}_{file.filename}"
+        file_path.parent.mkdir(parents=True, exist_ok=True)
         with open(file_path, "wb") as f:
             f.write(await file.read())
         file_paths.append(str(file_path))
