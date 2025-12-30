@@ -46,7 +46,7 @@ def detect_artery_name(roi_with_box):
                 ]
             }
         ],
-        max_tokens=10
+        max_tokens=100
     )
 
     return response.choices[0].message.content.strip()
