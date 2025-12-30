@@ -1,0 +1,7 @@
+{
+  "name": "AngioAI Clinical Dashboard",
+  "description": "Next-generation AI-powered angiography analysis platform for cardiologists.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

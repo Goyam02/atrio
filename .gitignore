@@ -5,3 +5,4 @@ __pycache__/
 backend/alembic/
 backend/alembic.ini
 Stenosis-detection/
+node_modules/
