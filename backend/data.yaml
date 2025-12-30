@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 1
+names: ['Stenosis']
+
+roboflow:
+  workspace: goyam
+  project: angiographic-dataset-for-stenosis-detection-sjtcf
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/goyam/angiographic-dataset-for-stenosis-detection-sjtcf/dataset/1
